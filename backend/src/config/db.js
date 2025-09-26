@@ -1,13 +1,27 @@
 import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/buyc';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 export const connectDB = async () => {
+  const useMemory = process.env.MONGODB_INMEMORY === 'true' || !MONGODB_URI;
+  if (!useMemory) {
+    try {
+      await mongoose.connect(MONGODB_URI, { dbName: 'buyc' });
+      console.log('MongoDB connected');
+      return;
+    } catch (err) {
+      console.warn('MongoDB connection failed, falling back to in-memory:', err.message);
+    }
+  }
+
   try {
-    await mongoose.connect(MONGODB_URI, { dbName: 'buyc' });
-    console.log('MongoDB connected');
+    const mem = await MongoMemoryServer.create();
+    const uri = mem.getUri('buyc');
+    await mongoose.connect(uri);
+    console.log('MongoDB (in-memory) started');
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
+    console.error('Failed to start in-memory MongoDB:', err.message);
     process.exit(1);
   }
 };
