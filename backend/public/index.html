@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BUYC Corp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <script type="module">
+      const { useEffect, useMemo, useState } = React;
+
+      const API = '';
+
+      const getToken = () => localStorage.getItem('token');
+      const setToken = (t) => localStorage.setItem('token', t);
+      const clearToken = () => localStorage.removeItem('token');
+
+      function Button({ className = '', ...props }) {
+        return <button className={("px-3 py-2 rounded-md text-white " + className).trim()} {...props} />;
+      }
+
+      function Input(props) {
+        return <input className="border rounded-md p-2 w-full" {...props} />
+      }
+
+      function Section({ title, children }) {
+        return (
+          <section className="bg-white p-4 rounded-lg shadow space-y-3">
+            {title ? <h2 className="text-lg font-semibold">{title}</h2> : null}
+            {children}
+          </section>
+        );
+      }
+
+      function Signup({ onDone }) {
+        const [form, setForm] = useState({ name: '', email: '', password: '' });
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState('');
+        const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+        const submit = async (e) => {
+          e.preventDefault(); setLoading(true); setError('');
+          try {
+            const res = await fetch(API + '/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+            if (!res.ok) throw new Error((await res.json()).message || 'Signup failed');
+            onDone();
+          } catch (err) { setError(err.message); } finally { setLoading(false); }
+        };
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <form onSubmit={submit} className="w-full max-w-md bg-white shadow rounded-lg p-6 space-y-4">
+              <h1 className="text-2xl font-semibold text-gray-800 text-center">Create Account</h1>
+              {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+              <Input name="name" value={form.name} onChange={onChange} placeholder="Name" />
+              <Input name="email" value={form.email} onChange={onChange} placeholder="Email" type="email" />
+              <Input name="password" value={form.password} onChange={onChange} placeholder="Password" type="password" />
+              <Button className="w-full bg-blue-600 hover:bg-blue-700">{loading ? 'Creating...' : 'Sign Up'}</Button>
+              <p className="text-center text-sm">Already have an account? <a href="#/login" className="text-blue-600">Login</a></p>
+            </form>
+          </div>
+        );
+      }
+
+      function Login({ onDone }) {
+        const [form, setForm] = useState({ email: '', password: '' });
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState('');
+        const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+        const submit = async (e) => {
+          e.preventDefault(); setLoading(true); setError('');
+          try {
+            const res = await fetch(API + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+            if (!res.ok) throw new Error((await res.json()).message || 'Login failed');
+            const data = await res.json();
+            setToken(data.token);
+            onDone();
+          } catch (err) { setError(err.message); } finally { setLoading(false); }
+        };
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <form onSubmit={submit} className="w-full max-w-md bg-white shadow rounded-lg p-6 space-y-4">
+              <h1 className="text-2xl font-semibold text-gray-800 text-center">Login</h1>
+              {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+              <Input name="email" value={form.email} onChange={onChange} placeholder="Email" type="email" />
+              <Input name="password" value={form.password} onChange={onChange} placeholder="Password" type="password" />
+              <Button className="w-full bg-blue-600 hover:bg-blue-700">{loading ? 'Logging in...' : 'Login'}</Button>
+              <p className="text-center text-sm">New here? <a href="#/signup" className="text-blue-600">Create account</a></p>
+            </form>
+          </div>
+        );
+      }
+
+      function VehicleFilters({ onApply }) {
+        const [minPrice, setMinPrice] = useState('');
+        const [maxPrice, setMaxPrice] = useState('');
+        const [colors, setColors] = useState('');
+        const [maxMileage, setMaxMileage] = useState('');
+        return (
+          <div className="bg-white p-4 rounded-lg shadow flex flex-col md:flex-row gap-3">
+            <Input placeholder="Min Price" value={minPrice} onChange={(e)=>setMinPrice(e.target.value)} />
+            <Input placeholder="Max Price" value={maxPrice} onChange={(e)=>setMaxPrice(e.target.value)} />
+            <Input placeholder="Colors (e.g., Red,White)" value={colors} onChange={(e)=>setColors(e.target.value)} />
+            <Input placeholder="Max Mileage" value={maxMileage} onChange={(e)=>setMaxMileage(e.target.value)} />
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={()=>{
+              const p={}; if(minPrice) p.minPrice=minPrice; if(maxPrice) p.maxPrice=maxPrice; if(colors) p.colors=colors; if(maxMileage) p.maxMileage=maxMileage; onApply(p);
+            }}>Apply</Button>
+          </div>
+        );
+      }
+
+      function CarCard({ car, selectable=false, selected=false, onSelect=()=>{}, onEdit=()=>{} }) {
+        const oem = car.oem || {};
+        return (
+          <div className="border rounded-lg p-4 bg-white shadow-sm flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              {selectable && (
+                <input type="checkbox" checked={selected} onChange={(e)=>onSelect(e.target.checked)} className="mt-1" />
+              )}
+              <img src={car.image_url} alt={car.model_name} className="w-36 h-24 object-cover rounded-md" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-800">{car.model_name}</h3>
+                <p className="text-sm text-gray-600">Kms Driven: {car.kms_driven} • Reg: {car.registration_place}</p>
+                {oem.list_price!==undefined && <p className="text-sm text-gray-700">OEM Price: ₹{oem.list_price}</p>}
+                {oem.mileage!==undefined && <p className="text-sm text-gray-700">Mileage: {oem.mileage} km/l</p>}
+              </div>
+            </div>
+            <ul className="list-disc pl-6 text-sm text-gray-700">
+              {(car.description||[]).map((d,i)=>(<li key={i}>{d}</li>))}
+            </ul>
+            <div className="flex justify-between items-center text-sm text-gray-700">
+              <span>Scratches: {car.major_scratches? 'Yes':'No'}</span>
+              <span>Original Paint: {car.original_paint? 'Yes':'No'}</span>
+              <span>Accidents: {car.number_of_accidents}</span>
+              <span>Prev Buyers: {car.number_of_previous_buyers}</span>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button className="bg-yellow-500" onClick={onEdit}>Edit</Button>
+            </div>
+          </div>
+        );
+      }
+
+      function CarForm({ initial=null, onSubmit, submitText='Add Car' }) {
+        const [form, setForm] = useState({
+          model_name: '', kms_driven: '', major_scratches: false, original_paint: true,
+          number_of_accidents: 0, number_of_previous_buyers: 0, registration_place: '', image_url: '',
+          description: ['', '', '', '', '']
+        });
+        useEffect(()=>{ if(initial){ setForm({ ...initial, description: Array.isArray(initial.description)&&initial.description.length? initial.description:['','','','',''] }); } },[initial]);
+        const onChange=(e)=>{ const {name,value,type,checked}=e.target; setForm(p=>({...p,[name]:type==='checkbox'?checked:value})) };
+        const onBulletChange=(i,val)=> setForm(p=>{ const arr=[...p.description]; arr[i]=val; return { ...p, description: arr}; });
+        const submit=(e)=>{ e.preventDefault(); const cleaned={ ...form, kms_driven:Number(form.kms_driven)}; cleaned.description = cleaned.description.filter(d=>d&&d.trim()).slice(0,5); onSubmit(cleaned); };
+        return (
+          <form onSubmit={submit} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input name="model_name" value={form.model_name} onChange={onChange} placeholder="Model Name (e.g., Honda City)" />
+              <Input name="kms_driven" value={form.kms_driven} onChange={onChange} placeholder="Kms Driven" type="number" />
+              <Input name="registration_place" value={form.registration_place} onChange={onChange} placeholder="Registration Place" />
+              <Input name="image_url" value={form.image_url} onChange={onChange} placeholder="Image URL" />
+            </div>
+            <div className="flex gap-4 items-center">
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="major_scratches" checked={form.major_scratches} onChange={onChange} /> Major Scratches</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="original_paint" checked={form.original_paint} onChange={onChange} /> Original Paint</label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input name="number_of_accidents" value={form.number_of_accidents} onChange={onChange} placeholder="Number of Accidents" type="number" />
+              <Input name="number_of_previous_buyers" value={form.number_of_previous_buyers} onChange={onChange} placeholder="Previous Buyers" type="number" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-700">Bullet Points (max 5)</p>
+              {[0,1,2,3,4].map((i)=> (
+                <Input key={i} value={form.description[i]||''} onChange={(e)=>onBulletChange(i,e.target.value)} placeholder={`Point ${i+1}`} />
+              ))}
+            </div>
+            <Button className="bg-green-600 hover:bg-green-700">{submitText}</Button>
+          </form>
+        );
+      }
+
+      function Dashboard() {
+        const [myCars, setMyCars] = useState([]);
+        const [allCars, setAllCars] = useState([]);
+        const [selected, setSelected] = useState({});
+        const [editing, setEditing] = useState(null);
+        const [saving, setSaving] = useState(false);
+        const loggedIn = useMemo(()=>!!getToken(),[]);
+
+        async function list(params={}){
+          const q = new URLSearchParams(params).toString();
+          const res = await fetch(API + '/api/inventory' + (q?`?${q}`:''));
+          if(!res.ok) throw new Error('Failed to load cars');
+          return res.json();
+        }
+        const fetchMine = async()=> setMyCars(await list({ mine:'true' }));
+        const fetchAll = async(p={})=> setAllCars(await list(p));
+
+        useEffect(()=>{ fetchMine(); fetchAll(); },[]);
+
+        const handleAdd = async(data)=>{
+          try {
+            setSaving(true);
+            const headers = { 'Content-Type':'application/json' };
+            const token = getToken(); if(token) headers['Authorization'] = 'Bearer ' + token;
+            const url = editing? (API + '/api/inventory/' + editing._id) : (API + '/api/inventory');
+            const method = editing? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers, body: JSON.stringify(data) });
+            if(!res.ok) throw new Error((await res.json()).message || 'Save failed');
+            setEditing(null);
+            await fetchMine(); await fetchAll();
+          } catch(e){ alert(e.message); } finally { setSaving(false); }
+        };
+
+        const toggleSelect = (id, v)=> setSelected(s=>({ ...s, [id]: v }));
+        const deleteSelected = async()=>{
+          const ids = Object.keys(selected).filter(id=>selected[id]);
+          if(!ids.length) return; if(!confirm('Delete selected cars?')) return;
+          const res = await fetch(API + '/api/inventory', { method:'DELETE', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + getToken() }, body: JSON.stringify({ ids }) });
+          if(!res.ok) { alert('Delete failed'); return; }
+          setSelected({}); await fetchMine(); await fetchAll();
+        };
+
+        return (
+          <div className="min-h-screen bg-gray-50 p-4 space-y-6">
+            <header className="flex justify-between items-center">
+              <h1 className="text-2xl font-semibold text-gray-800">BUYC Corp Dealer Dashboard</h1>
+              <div className="flex gap-3 items-center">
+                {loggedIn ? (
+                  <Button className="bg-red-600" onClick={()=>{ clearToken(); location.hash = '#/login'; location.reload(); }}>Logout</Button>
+                ) : (
+                  <a className="px-3 py-2 bg-blue-600 text-white rounded-md" href="#/login">Login</a>
+                )}
+              </div>
+            </header>
+
+            <Section title={editing? 'Edit Car' : 'Add New Car'}>
+              <CarForm initial={editing} onSubmit={handleAdd} submitText={editing? 'Save Changes':'Add Car'} />
+              {saving && <p className="text-sm text-gray-600 mt-2">Saving...</p>}
+            </Section>
+
+            <section className="space-y-3">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold">Your Cars</h2>
+                <Button className="bg-red-600" onClick={deleteSelected}>Delete Selected</Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myCars.map(car => (
+                  <CarCard key={car._id} car={car} selectable selected={!!selected[car._id]} onSelect={(v)=>toggleSelect(car._id,v)} onEdit={()=>setEditing(car)} />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">Browse All Cars</h2>
+              <VehicleFilters onApply={fetchAll} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {allCars.map(car => (<CarCard key={car._id} car={car} />))}
+              </div>
+            </section>
+          </div>
+        );
+      }
+
+      function App(){
+        const [route,setRoute] = useState(location.hash || '#/login');
+        useEffect(()=>{
+          const onHash=()=> setRoute(location.hash || '#/login');
+          window.addEventListener('hashchange', onHash);
+          if(getToken() && (!route.startsWith('#/dashboard'))) location.hash = '#/dashboard';
+          return ()=> window.removeEventListener('hashchange', onHash);
+        },[]);
+
+        if(route.startsWith('#/signup')) return <Signup onDone={()=>location.hash='#/login'} />
+        if(route.startsWith('#/login')) return <Login onDone={()=>{ location.hash = '#/dashboard'; location.reload(); }} />
+        return <Dashboard />
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
